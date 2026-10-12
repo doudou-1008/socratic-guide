@@ -49,4 +49,4 @@ python -m http.server 3000      # 推荐
 > ⚠️ 演示模式：未配置 `DEEPSEEK_API_KEY` 时，后端返回固定的苏格拉底式演示回复，但**完整 SSE 流程、阶段推进、历史记忆、代码模拟运行**均正常，方便前端先联调。正式评分需填入真实 Key。
 
 ## 协作
-共享 GitHub 仓库（由成员 B 建 `socratic-guide` 并邀请 A、C），小步提交 + 发 PR 合并。AI 编程助手读取根目录 `AGENTS.md` 自动遵守接口约定。
+共享 GitHub 仓库（由成员 B 建 socratic-guide 并邀请 A、C），采用小步提交 + Pull Request 评审合并的工作流；前后端严格按 `docs/接口与约定.md` 的字段与事件流对接。
