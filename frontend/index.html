@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>苏格拉底式多赛道导师</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root { --accent: #3b82f6; }
+    .bg-accent { background-color: var(--accent); }
+    .text-accent { color: var(--accent); }
+    .border-accent { border-color: var(--accent); }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <div class="flex h-screen">
+    <!-- 左侧：赛道切换 -->
+    <aside class="w-56 shrink-0 bg-white border-r flex flex-col">
+      <div class="p-4 border-b">
+        <div class="text-base font-bold">🏛️ 苏格拉底导师</div>
+        <div class="text-xs text-gray-400 mt-1">只提问 · 不回答</div>
+      </div>
+      <div id="track-bar" class="flex flex-col gap-2 p-3"></div>
+      <div class="mt-auto p-3 text-xs text-gray-400">进度独立保存<br/>切换不丢失</div>
+    </aside>
+
+    <!-- 中间：聊天 -->
+    <main class="flex-1 flex flex-col">
+      <header class="px-5 h-14 flex items-center border-b bg-white">
+        <span id="track-title" class="font-semibold">编程排错</span>
+        <span class="ml-2 text-xs text-gray-400">当前引导阶段随对话推进</span>
+      </header>
+      <div id="chat" class="flex-1 overflow-y-auto p-5 bg-gray-50"></div>
+      <div class="p-3 bg-white border-t flex gap-2 items-center">
+        <label class="text-xs text-gray-400 cursor-pointer border rounded px-2 py-2 hover:bg-gray-50">
+          📷 截图
+          <input id="ocr-file" type="file" accept="image/*" class="hidden" />
+        </label>
+        <input id="input" type="text" placeholder="说说你卡在哪里…"
+               class="flex-1 border rounded px-3 py-2 text-sm outline-none focus:border-accent" />
+        <button id="send" class="bg-accent text-white px-5 py-2 rounded text-sm font-medium">发送</button>
+      </div>
+      <div id="ocr-status" class="text-xs text-gray-400 px-3 pb-2 h-4"></div>
+    </main>
+
+    <!-- 右侧：进度条 + 引导树 -->
+    <aside class="w-64 shrink-0 bg-white border-l p-4">
+      <div class="text-sm font-semibold mb-4">引导进度</div>
+      <div id="progress"></div>
+      <div class="mt-6 text-xs text-gray-400 leading-relaxed">
+        每完成一轮对话，阶段自动 +1。<br/>
+        贴代码块会触发运行结果（演示模式为模拟）。
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import { store, fetchSession } from "./js/store.js";
+    import { sendMessage, renderHistory, showEmpty } from "./js/chat.js";
+    import { renderTracks } from "./js/track.js";
+    import { renderProgress } from "./js/progress.js";
+    import { initOcr } from "./js/ocr.js";
+
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    function doSend() {
+      const v = input.value;
+      if (!v.trim()) return;
+      input.value = "";
+      sendMessage(v);
+    }
+    sendBtn.onclick = doSend;
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        doSend();
+      }
+    });
+
+    renderTracks();
+    renderProgress("programming", 1);
+    showEmpty();
+    initOcr();
+
+    // 首次加载拉回当前赛道历史
+    (async () => {
+      const s = await fetchSession(store.state.track);
+      store.set({
+        stage: { ...store.state.stage, [store.state.track]: s.stage },
+        messages: s.history,
+      });
+      renderProgress(store.state.track, s.stage);
+      renderHistory(s.history);
+    })();
+  </script>
+</body>
+</html>
