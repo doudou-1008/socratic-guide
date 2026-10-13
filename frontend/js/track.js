@@ -9,9 +9,19 @@ export function renderTracks() {
   bar.innerHTML = "";
   TRACKS.forEach((t) => {
     const btn = document.createElement("button");
-    btn.className = "track-btn flex-1 py-2 rounded-lg text-sm font-medium border transition";
-    btn.textContent = t.icon + " " + t.name;
+    btn.className = "track-btn";
     btn.dataset.track = t.id;
+
+    const dot = document.createElement("span");
+    dot.className = "track-dot";
+    dot.style.background = t.color; // 赛道标识色（非 AI 紫）
+
+    const label = document.createElement("span");
+    label.className = "track-name";
+    label.textContent = t.name;
+
+    btn.appendChild(dot);
+    btn.appendChild(label);
     btn.onclick = () => switchTrack(t.id);
     bar.appendChild(btn);
   });
@@ -23,9 +33,9 @@ function applyActive() {
   setAccent(t.color);
   document.querySelectorAll(".track-btn").forEach((b) => {
     const active = b.dataset.track === store.state.track;
-    b.style.background = active ? t.color : "";
-    b.style.color = active ? "#fff" : "";
-    b.style.borderColor = t.color;
+    b.classList.toggle("active", active);
+    b.style.borderColor = active ? t.color : "transparent";
+    b.style.background = active ? t.color + "14" : ""; // 透明底色，避免纯色块
   });
   const title = document.getElementById("track-title");
   if (title) title.textContent = t.name;

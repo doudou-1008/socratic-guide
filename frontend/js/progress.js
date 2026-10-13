@@ -14,23 +14,20 @@ export function renderProgress(track, stage) {
   el.innerHTML = "";
   labels.forEach((label, i) => {
     const n = i + 1;
-    const node = document.createElement("div");
-    node.className = "flex items-center gap-3 mb-4";
+    const row = document.createElement("div");
+    row.className = "prog-row";
 
     const dot = document.createElement("div");
-    dot.className =
-      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold " +
-      (n <= stage ? "bg-accent text-white" : "bg-gray-200 text-gray-500");
+    dot.className = "prog-dot" + (n <= stage ? " done" : "");
     dot.textContent = n;
 
     const txt = document.createElement("div");
-    txt.className =
-      "text-sm " + (n <= stage ? "font-semibold text-gray-800" : "text-gray-400");
+    txt.className = "prog-label" + (n <= stage ? " done" : "");
     txt.textContent = label;
 
-    node.appendChild(dot);
-    node.appendChild(txt);
-    el.appendChild(node);
+    row.appendChild(dot);
+    row.appendChild(txt);
+    el.appendChild(row);
   });
 }
 

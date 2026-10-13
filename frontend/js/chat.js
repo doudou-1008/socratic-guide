@@ -12,15 +12,13 @@ function scrollDown() {
 // 创建一个消息气泡，返回"内容容器"用于后续填充
 function addMessage(role, text = "") {
   const wrap = document.createElement("div");
-  wrap.className = "mb-3 flex " + (role === "user" ? "justify-end" : "justify-start");
+  wrap.className = "msg " + (role === "user" ? "msg-user" : "msg-bot");
 
   const bubble = document.createElement("div");
-  bubble.className =
-    "max-w-[80%] rounded-2xl px-4 py-2 " +
-    (role === "user" ? "bg-accent text-white" : "bg-white text-gray-800 border");
+  bubble.className = "bubble " + (role === "user" ? "bubble-user" : "bubble-bot");
 
   const content = document.createElement("div");
-  content.className = "whitespace-pre-wrap text-sm leading-relaxed";
+  content.className = "msg-content";
   if (text) renderContent(content, text);
 
   bubble.appendChild(content);
@@ -33,8 +31,10 @@ function addMessage(role, text = "") {
 export function showEmpty() {
   const el = document.createElement("div");
   el.id = "empty-state";
-  el.className = "text-center text-gray-400 text-sm mt-10";
-  el.textContent = "我是苏格拉底式导师，只提问、不回答。说说你卡在哪里？";
+  el.className = "empty-state";
+  el.innerHTML =
+    '<div class="empty-title">我是苏格拉底式导师</div>' +
+    '<div class="empty-sub">只提问、不回答。说说你卡在哪里？</div>';
   chatEl.appendChild(el);
 }
 
@@ -45,8 +45,7 @@ export function renderHistory(history) {
     return;
   }
   history.forEach((m) => {
-    const role = m.role === "user" ? "user" : "assistant";
-    const content = addMessage(role, "");
+    const content = addMessage(m.role === "user" ? "user" : "assistant", "");
     renderContent(content, m.content || "");
   });
 }
@@ -54,15 +53,16 @@ export function renderHistory(history) {
 // 工具结果（如 Judge0）以卡片展示
 function showTool(payload) {
   const wrap = document.createElement("div");
-  wrap.className = "mb-3 flex justify-start";
+  wrap.className = "msg msg-bot";
   const card = document.createElement("div");
-  card.className = "max-w-[80%] rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs";
+  card.className = "tool-card";
   const title = document.createElement("div");
-  title.className = "font-semibold text-gray-600 mb-1";
-  title.textContent = "⚙️ " + (payload.name || "tool") + " 运行结果";
+  title.className = "tool-title";
+  title.textContent = (payload.name || "tool") + " 运行结果";
   const pre = document.createElement("pre");
-  pre.className = "whitespace-pre-wrap text-gray-700";
-  pre.textContent = (payload.stdout || "") + (payload.stderr ? "\n[stderr]\n" + payload.stderr : "");
+  pre.className = "tool-pre";
+  pre.textContent =
+    (payload.stdout || "") + (payload.stderr ? "\n[stderr]\n" + payload.stderr : "");
   card.appendChild(title);
   card.appendChild(pre);
   wrap.appendChild(card);
@@ -70,26 +70,34 @@ function showTool(payload) {
   scrollDown();
 }
 
-function handleEvent(payload, contentEl, fullText) {
-  switch (payload.type) {
-    case "token":
-      fullText.v += payload.content;
-      contentEl.textContent = fullText.v; // 流式阶段用纯文本，done 时再高亮
-      scrollDown();
-      break;
-    case "stage":
-      setStage(store.state.track, payload.stage, payload.label);
-      break;
-    case "tool":
-      showTool(payload);
-      break;
-    case "error":
-      contentEl.textContent += "\n[错误：" + payload.message + "]";
-      break;
-    case "done":
-      renderContent(contentEl, fullText.v); // 完成后再做代码高亮
-      break;
-  }
+// 错误卡片 + 重试按钮
+function showError(message, retryText) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg msg-bot";
+  const card = document.createElement("div");
+  card.className = "error-card";
+  const p = document.createElement("div");
+  p.className = "error-msg";
+  p.textContent = message;
+  const btn = document.createElement("button");
+  btn.className = "retry-btn";
+  btn.textContent = "重试";
+  btn.onclick = () => {
+    wrap.remove();
+    if (retryText) sendMessage(retryText);
+  };
+  card.appendChild(p);
+  card.appendChild(btn);
+  wrap.appendChild(card);
+  chatEl.appendChild(wrap);
+  scrollDown();
+}
+
+function makeTyping() {
+  const span = document.createElement("span");
+  span.className = "typing";
+  span.innerHTML = "<i></i><i></i><i></i>";
+  return span;
 }
 
 export async function sendMessage(text) {
@@ -100,9 +108,13 @@ export async function sendMessage(text) {
   if (empty) empty.remove();
 
   addMessage("user", text);
+
   const contentEl = addMessage("assistant", "");
+  const typing = makeTyping();
+  contentEl.appendChild(typing);
   store.set({ streaming: true });
   const fullText = { v: "" };
+  let gotToken = false;
 
   try {
     const res = await fetch(`${API_BASE}/chat`, {
@@ -111,7 +123,9 @@ export async function sendMessage(text) {
       body: JSON.stringify({ message: text, track, user_id: userId }),
     });
     if (!res.ok) {
-      contentEl.textContent = "请求失败：" + res.status;
+      typing.remove();
+      showError("请求失败（" + res.status + "），请稍后重试。", text);
+      store.set({ streaming: false });
       return;
     }
     const reader = res.body.getReader();
@@ -128,11 +142,35 @@ export async function sendMessage(text) {
         const line = raw.split("\n").find((l) => l.startsWith("data: "));
         if (!line) continue;
         const payload = JSON.parse(line.slice(6));
-        handleEvent(payload, contentEl, fullText);
+        switch (payload.type) {
+          case "token":
+            if (!gotToken) {
+              gotToken = true;
+              typing.remove();
+            }
+            fullText.v += payload.content;
+            contentEl.textContent = fullText.v; // 流式阶段用纯文本，done 时再高亮
+            scrollDown();
+            break;
+          case "stage":
+            setStage(track, payload.stage, payload.label);
+            break;
+          case "tool":
+            showTool(payload);
+            break;
+          case "error":
+            contentEl.textContent += "\n[错误：" + payload.message + "]";
+            break;
+          case "done":
+            if (!gotToken) typing.remove();
+            renderContent(contentEl, fullText.v); // 完成后再做代码高亮
+            break;
+        }
       }
     }
   } catch (e) {
-    contentEl.textContent += "\n[网络异常：" + e.message + "]";
+    if (!gotToken) typing.remove();
+    showError("网络异常：" + e.message, text);
   } finally {
     store.set({ streaming: false });
     scrollDown();

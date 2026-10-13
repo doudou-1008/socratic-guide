@@ -6,10 +6,11 @@
 export const API_BASE = "http://127.0.0.1:8000";
 
 // 三赛道展示配置（id 必须与后端 TRACKS 的 key 一致）
+// 强调色均非 AI 紫、饱和度 < 80%：编程蓝 / 论文青 / 习惯绿
 export const TRACKS = [
-  { id: "programming", name: "编程排错", icon: "💻", color: "#3b82f6" },
-  { id: "thesis",     name: "论文写作", icon: "📝", color: "#8b5cf6" },
-  { id: "habit",      name: "自律习惯", icon: "🌱", color: "#10b981" },
+  { id: "programming", name: "编程排错", color: "#2563eb" },
+  { id: "thesis",     name: "论文写作", color: "#0d9488" },
+  { id: "habit",     name: "自律习惯", color: "#16a34a" },
 ];
 
 // 跨刷新保留 userId，使历史可以拉回（localStorage 持久化）
