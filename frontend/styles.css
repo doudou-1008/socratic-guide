@@ -449,3 +449,154 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   新增：深色模式 / 搜索 / 便签 / 复制 / 停止 / 引导浮层 / textarea 适配
+   ============================================================ */
+
+/* —— 深色模式：覆盖中性色变量（强调色仍由赛道色运行时注入）—— */
+[data-theme="dark"] {
+  --bg: #0e0e11;
+  --surface: #1b1b1f;
+  --panel: #151518;
+  --ink: #ededed;
+  --ink-2: #a8a8ad;
+  --ink-3: #6f6f76;
+  --line: #2a2a30;
+  --line-soft: #232328;
+  --bubble-user: #2a2a30;
+  --danger-bg: #2a1518;
+  --danger-line: #5c2a2e;
+}
+/* 主题切换时的平滑过渡（只动颜色，不动 transform/opacity，不干扰既有动效） */
+body, .sidebar, .chat-main, .progress-panel, .composer-shell, .bubble,
+.new-chat-btn, .export-btn, .ghost-btn, .chat-header, .conv-group-head,
+.conv-item, .path-step, .notes, .notes-input, .chip, .ocr-btn, .send-btn, .sidebar-foot {
+  transition: background-color var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
+}
+
+/* —— 左栏搜索框 —— */
+.conv-search {
+  width: 100%; margin: 0 0 12px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-control);
+  background: var(--surface); color: var(--ink);
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.conv-search::placeholder { color: var(--ink-3); }
+.conv-search:focus { border-color: var(--accent-line); background: var(--bg); }
+
+/* —— header 操作按钮 —— */
+.chat-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ghost-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-control); padding: 7px 13px;
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.ghost-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.ghost-btn:active { transform: scale(.97); }
+
+/* —— textarea：去掉默认拉伸手柄，自适应增高 —— */
+.composer-input { resize: none; line-height: 1.6; overflow-y: auto; max-height: 200px; }
+
+/* —— 消息复制按钮（hover 显示）—— */
+.bubble { position: relative; }
+.copy-btn {
+  position: absolute; top: 6px; right: 8px;
+  opacity: 0; padding: 2px 9px;
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink-2);
+  font-size: 11px; font-family: inherit; cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.msg:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+.copy-btn:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+
+/* —— 停止生成态 —— */
+.send-btn.is-stop { background: var(--danger); }
+.send-btn.is-stop:hover { background: #b91c1c; }
+
+/* —— 灵感便签（右栏底部，可折叠）—— */
+.notes { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.notes-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  cursor: pointer; user-select: none; border-radius: 8px;
+}
+.notes-caret {
+  width: 7px; height: 7px; margin-left: 4px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); transition: transform var(--dur-base) var(--ease-out);
+}
+.notes.collapsed .notes-caret { transform: rotate(-135deg); }
+.notes.collapsed .notes-input { display: none; }
+.notes-input {
+  width: 100%; margin-top: 9px; min-height: 66px; resize: vertical;
+  border: 1px solid var(--line); border-radius: var(--radius-control);
+  background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 13px; line-height: 1.55; padding: 9px 11px;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.notes-input::placeholder { color: var(--ink-3); }
+.notes-input:focus { border-color: var(--accent-line); background: var(--bg); }
+
+/* —— 首次使用引导浮层 —— */
+.onboard {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / .45);
+  opacity: 0; transition: opacity var(--dur-base) var(--ease-out);
+}
+.onboard[hidden] { display: none; }
+.onboard.show { opacity: 1; }
+.onboard-card {
+  position: relative; width: min(440px, 92vw);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-surface); box-shadow: var(--shadow-float);
+  padding: 36px 30px 24px; text-align: center;
+  transform: translateY(10px); transition: transform var(--dur-base) var(--ease-out);
+}
+.onboard.show .onboard-card { transform: none; }
+.onboard-step { display: none; animation: chatIn var(--dur-slow) var(--ease-out) both; }
+.onboard-step.show { display: block; }
+.onboard-no {
+  width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft);
+}
+.onboard-title { font-size: 19px; font-weight: 600; margin: 0 0 10px; color: var(--ink); letter-spacing: -.01em; }
+.onboard-text { font-size: 14px; color: var(--ink-2); line-height: 1.7; margin: 0; text-wrap: pretty; }
+.onboard-text b { color: var(--ink); }
+.onboard-dots { display: flex; gap: 7px; justify-content: center; margin: 22px 0 18px; }
+.onboard-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background var(--dur-fast) var(--ease-out); }
+.onboard-dot.active { background: var(--accent); }
+.onboard-nav { display: flex; gap: 10px; justify-content: center; }
+.onboard-prev, .onboard-next {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: var(--radius-control); padding: 9px 22px;
+  font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.onboard-prev:hover { background: var(--bg); border-color: var(--accent-line); }
+.onboard-next { background: var(--accent); color: #fff; border-color: var(--accent); }
+.onboard-next:hover { background: var(--accent-hover); }
+.onboard-next:active, .onboard-prev:active { transform: scale(.97); }
+.onboard-skip {
+  position: absolute; top: 14px; right: 16px;
+  border: none; background: transparent; color: var(--ink-3);
+  font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.onboard-skip:hover { color: var(--ink-2); }
+
+/* —— 窄屏：header 按钮收敛 —— */
+@media (max-width: 860px) {
+  .chat-head-actions .ghost-btn, .export-btn { padding: 6px 10px; font-size: 12px; }
+  .chat-sub { display: none; }
+}

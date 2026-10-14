@@ -1,15 +1,20 @@
 // 聊天渲染 + 发消息（SSE 流）；后端未连时本地演示降级
+// 本文件同时负责：输入框交互（Enter 发送 / Shift+Enter 换行 / 停止生成）、单条复制、分享卡片。
 import { store, API_BASE, TRACKS, getActive, appendMessage, setActiveStage, deriveTitle } from "./store.js";
 import { renderProgress, setStage } from "./progress.js";
 import { setAccent, renderContent } from "./highlight.js";
 
 const chatEl = document.getElementById("chat");
 
+// —— 流式中断状态（点「停止」时置位）——
+let streamingStop = false;
+let activeTimer = null;
+let activeAbort = null;
+
 function trackName(id) {
   const t = TRACKS.find((x) => x.id === id);
   return t ? t.name : "苏格拉底导师";
 }
-
 function scrollDown() { chatEl.scrollTop = chatEl.scrollHeight; }
 
 function addMessage(role, text = "", delay = 0, idx = -1) {
@@ -23,10 +28,33 @@ function addMessage(role, text = "", delay = 0, idx = -1) {
   content.className = "msg-content";
   if (text) renderContent(content, text);
   bubble.appendChild(content);
+  // 复制单条按钮（hover 时显示）
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "copy-btn";
+  copy.textContent = "复制";
+  copy.setAttribute("aria-label", "复制这条消息");
+  copy.onclick = (e) => { e.stopPropagation(); copyText(bubble.querySelector(".msg-content").innerText || ""); flashBtn(copy, "已复制"); };
+  bubble.appendChild(copy);
   wrap.appendChild(bubble);
   chatEl.appendChild(wrap);
   scrollDown();
   return content;
+}
+
+function copyText(text) {
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return; } } catch {}
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch {}
+  ta.remove();
+}
+function flashBtn(el, msg) {
+  if (!el) return;
+  const old = el.textContent;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = old; }, 1200);
 }
 
 const SUGGESTIONS = {
@@ -54,11 +82,11 @@ export function showEmpty() {
       const input = document.getElementById("input");
       input.value = b.textContent;
       input.focus();
+      if (input.tagName === "TEXTAREA") { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 200) + "px"; }
     };
   });
 }
 
-// 有对话时刷新右侧「思考路径图」
 function refreshPath() {
   const c = getActive();
   if (c) renderProgress(c.track, c.stage, c);
@@ -98,7 +126,6 @@ export function renderHistory(history) {
   });
 }
 
-// 工具结果卡片
 function showTool(payload) {
   const wrap = document.createElement("div");
   wrap.className = "msg msg-bot";
@@ -117,7 +144,6 @@ function showTool(payload) {
   scrollDown();
 }
 
-// 错误卡片 + 重试
 function showError(message, retryText) {
   const wrap = document.createElement("div");
   wrap.className = "msg msg-bot";
@@ -172,16 +198,24 @@ function demoRespond(contentEl) {
   const reply = pickDemoReply(store.state.track);
   return new Promise((resolve) => {
     setTimeout(() => {
+      if (streamingStop) { typing.remove(); resolve(); return; }
       typing.remove();
       let i = 0;
-      const timer = setInterval(() => {
+      activeTimer = setInterval(() => {
+        if (streamingStop) { clearInterval(activeTimer); activeTimer = null; resolve(); return; }
         i += 2;
         contentEl.textContent = reply.slice(0, i);
         scrollDown();
-        if (i >= reply.length) { clearInterval(timer); resolve(); }
+        if (i >= reply.length) { clearInterval(activeTimer); activeTimer = null; resolve(); }
       }, 16);
     }, 550);
   });
+}
+
+function stopStreaming() {
+  streamingStop = true;
+  if (activeAbort) { try { activeAbort.abort(); } catch {} }
+  if (activeTimer) { clearInterval(activeTimer); activeTimer = null; }
 }
 
 export async function sendMessage(text) {
@@ -192,6 +226,8 @@ export async function sendMessage(text) {
   if (empty) empty.remove();
   if (main) main.classList.remove("is-empty");
 
+  streamingStop = false;
+  setBusy(true);
   const idxUser = (getActive().messages || []).length;
   addMessage("user", text, 0, idxUser);
   appendMessage("user", text);
@@ -207,10 +243,13 @@ export async function sendMessage(text) {
   let gotToken = false;
 
   try {
+    const ac = new AbortController();
+    activeAbort = ac;
     const res = await fetch(`${API_BASE}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text, track, user_id: userId, conversation_id: store.state.activeId }),
+      signal: ac.signal,
     });
     if (!res.ok) throw new Error("status " + res.status);
     const reader = res.body.getReader();
@@ -250,17 +289,53 @@ export async function sendMessage(text) {
     if (!gotToken) typing.remove();
     if (fullText.v) appendMessage("assistant", fullText.v);
   } catch (e) {
-    // 演示降级：后端未连接时，本地生成苏格拉底式反问，方便查看交互效果
-    await demoRespond(contentEl);
-    appendMessage("assistant", contentEl.textContent);
+    if (typing && typing.parentNode) typing.remove();
+    // 用户主动停止时不降级；否则演示降级：本地生成苏格拉底式反问
+    if (!streamingStop) {
+      await demoRespond(contentEl);
+      appendMessage("assistant", contentEl.textContent);
+    }
   } finally {
     store.set({ streaming: false });
+    activeAbort = null;
+    setBusy(false);
     scrollDown();
     refreshPath();
   }
 }
 
-// 把「自动总结出来的标题」同步到左栏当前对话项（如左栏未订阅重绘时的兜底）
+function setBusy(busy) {
+  const btn = document.getElementById("send");
+  if (!btn) return;
+  if (busy) { btn.textContent = "停止"; btn.onclick = stopStreaming; btn.classList.add("is-stop"); }
+  else { btn.textContent = "发送"; btn.onclick = doSend; btn.classList.remove("is-stop"); }
+}
+
+function doSend() {
+  if (store.state.streaming) return;
+  const input = document.getElementById("input");
+  if (!input) return;
+  const v = input.value;
+  if (!v.trim()) return;
+  input.value = "";
+  input.style.height = "auto";
+  sendMessage(v);
+}
+
+// 输入框交互（textarea 多行 / Enter 发送 / Shift+Enter 换行 / 自动增高）
+export function initComposer() {
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  if (!input || !sendBtn) return;
+  function autoGrow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 200) + "px"; }
+  input.addEventListener("input", autoGrow);
+  sendBtn.onclick = doSend;
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); doSend(); }
+  });
+}
+
+// —— 自动总结标题同步到左栏（兜底）——
 function updateSidebarTitle() {
   const c = getActive();
   if (!c) return;
@@ -268,10 +343,10 @@ function updateSidebarTitle() {
   if (el) el.textContent = c.title || "新对话";
 }
 
-// 对话导出为 Markdown（纯前端，基于当前对话的本地数据）
+// —— 对话导出为 Markdown ——
 export function exportConversation() {
   const c = getActive();
-  if (!c || !c.messages || !c.messages.length) { flashExport("请先聊天"); return; }
+  if (!c || !c.messages || !c.messages.length) { flashBtn(document.getElementById("export-btn"), "请先聊天"); return; }
   const t = TRACKS.find((x) => x.id === c.track);
   const trackName = t ? t.name : "";
   const dateStr = new Date(c.createdAt || Date.now()).toLocaleString("zh-CN");
@@ -293,10 +368,94 @@ export function exportConversation() {
   URL.revokeObjectURL(url);
 }
 
-function flashExport(msg) {
-  const btn = document.getElementById("export-btn");
-  if (!btn) return;
-  const old = btn.textContent;
-  btn.textContent = msg;
-  setTimeout(() => { btn.textContent = old; }, 1400);
+// —— 分享卡片（canvas 生成 PNG）——
+export function shareCard() {
+  const c = getActive();
+  if (!c || !c.messages || !c.messages.length) { flashBtn(document.getElementById("share-btn"), "请先聊天"); return; }
+  const t = TRACKS.find((x) => x.id === c.track);
+  const trackName = t ? t.name : "";
+  const accent = t ? t.color : "#2563eb";
+  const msgs = c.messages.slice(0, 14);
+  const W = 720, padX = 44, padTop = 56, lineH = 30, labelH = 24, msgGap = 22;
+  const FONT_LABEL = '600 15px "PingFang SC","Microsoft YaHei",sans-serif';
+  const FONT_BODY = '400 17px "PingFang SC","Microsoft YaHei",sans-serif';
+
+  const cv = document.createElement("canvas");
+  const ratio = window.devicePixelRatio || 1;
+  const ctx = cv.getContext("2d");
+  ctx.font = FONT_BODY;
+  let H = padTop + 64;
+  const heights = msgs.map((m) => {
+    const lines = wrapText(ctx, m.content || "", W - padX * 2).slice(0, 3).length;
+    return labelH + lines * lineH;
+  });
+  H += heights.reduce((a, b) => a + b + msgGap, 0) + 56;
+
+  cv.width = W * ratio; cv.height = H * ratio;
+  ctx.scale(ratio, ratio);
+  // 背景
+  roundRect(ctx, 0, 0, W, H, 24);
+  ctx.fillStyle = "#ffffff"; ctx.fill();
+  // 顶部品牌
+  ctx.fillStyle = accent;
+  ctx.beginPath(); ctx.arc(padX + 6, padTop - 14 + 6, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '700 22px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillStyle = "#171717";
+  ctx.fillText("苏格拉底导师", padX + 22, padTop - 8);
+  ctx.font = '500 14px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillStyle = "#9ca3af";
+  ctx.fillText("「" + (c.title || "对话") + "」", padX + 22, padTop + 14);
+  ctx.fillText("赛道：" + trackName, W - padX - ctx.measureText("赛道：" + trackName).width, padTop + 14);
+
+  let y = padTop + 56;
+  msgs.forEach((m, k) => {
+    const who = m.role === "user" ? "你" : "导师";
+    ctx.font = FONT_LABEL;
+    ctx.fillStyle = m.role === "user" ? "#6b6b6b" : accent;
+    ctx.fillText(who, padX, y);
+    y += labelH;
+    ctx.font = FONT_BODY;
+    ctx.fillStyle = "#171717";
+    const lines = wrapText(ctx, m.content || "", W - padX * 2).slice(0, 3);
+    lines.forEach((ln) => { ctx.fillText(ln, padX, y); y += lineH; });
+    if (k < msgs.length - 1) y += msgGap;
+  });
+  // 底部
+  ctx.font = '500 13px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillStyle = "#bdbdbd";
+  ctx.fillText("苏格拉底导师 · 只提问 · 不回答　" + new Date(c.createdAt || Date.now()).toLocaleDateString("zh-CN"), padX, H - 28);
+
+  cv.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fname = (c.title || "对话").replace(/[\\/:*?"<>|]/g, "_").slice(0, 40) || "对话";
+    a.href = url; a.download = fname + ".png";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
+function wrapText(ctx, text, maxW) {
+  const lines = [];
+  let line = "";
+  const str = String(text || "");
+  for (const ch of str) {
+    if (ch === "\n") { lines.push(line); line = ""; continue; }
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = ch; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function roundRect(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,13 +11,14 @@
 </head>
 <body>
   <div class="app">
-    <!-- 左侧：品牌 + 新建 + 每赛道对话列表 -->
+    <!-- 左侧：品牌 + 新建 + 搜索 + 每赛道对话列表 -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-name">苏格拉底导师</div>
         <div class="brand-sub">只提问 · 不回答</div>
       </div>
-      <button id="new-chat" class="new-chat-btn" aria-label="新建对话">+ 新对话</button>
+      <button id="new-chat" class="new-chat-btn" type="button" aria-label="新建对话">+ 新对话</button>
+      <input id="conv-search" class="conv-search" type="text" placeholder="搜索对话…" aria-label="搜索对话" />
       <nav id="conv-groups" class="conv-groups" aria-label="对话列表"></nav>
       <div class="sidebar-foot">
         <b>小贴士</b>
@@ -33,7 +34,11 @@
           <span id="track-title" class="chat-title">苏格拉底导师</span>
           <span class="chat-sub">引导阶段随对话推进</span>
         </div>
-        <button id="export-btn" class="export-btn" type="button" title="导出当前对话为 Markdown">导出</button>
+        <div class="chat-head-actions">
+          <button id="share-btn" class="ghost-btn" type="button" title="生成分享卡片">分享</button>
+          <button id="export-btn" class="export-btn" type="button" title="导出当前对话为 Markdown">导出</button>
+          <button id="theme-toggle" class="ghost-btn" type="button" aria-label="切换深色模式" title="切换深色模式">深色</button>
+        </div>
       </header>
       <div class="chat-body">
         <div id="chat" class="chat-scroll"></div>
@@ -43,14 +48,14 @@
             <label class="ocr-btn">截图
               <input id="ocr-file" type="file" accept="image/*" hidden />
             </label>
-            <input id="input" class="composer-input" type="text" placeholder="说说你卡在哪里…" autocomplete="off" />
-            <button id="send" class="send-btn" aria-label="发送">发送</button>
+            <textarea id="input" class="composer-input" rows="1" placeholder="说说你卡在哪里…" autocomplete="off"></textarea>
+            <button id="send" class="send-btn" type="button" aria-label="发送">发送</button>
           </div>
         </footer>
       </div>
     </main>
 
-    <!-- 右侧：进度概览 + 思考路径图 -->
+    <!-- 右侧：进度概览 + 思考路径图 + 灵感便签 -->
     <aside class="progress-panel">
       <div class="panel-title">思考路径</div>
       <div id="progress"></div>
@@ -58,44 +63,128 @@
         右侧逐步展示导师如何引导你思考。<br />
         点任意节点可跳回对应对话。
       </div>
+      <div class="notes">
+        <div class="notes-head" id="notes-head" role="button" tabindex="0">
+          <span>灵感便签</span>
+          <span class="notes-caret" aria-hidden="true"></span>
+        </div>
+        <textarea id="notes" class="notes-input" placeholder="随手记点想法，不影响对话…" aria-label="灵感便签"></textarea>
+      </div>
     </aside>
+  </div>
+
+  <!-- 首次使用引导 -->
+  <div id="onboard" class="onboard" hidden>
+    <div class="onboard-card">
+      <button id="onboard-skip" class="onboard-skip" type="button">跳过</button>
+      <div class="onboard-step">
+        <div class="onboard-no">1</div>
+        <h2 class="onboard-title">这是什么</h2>
+        <p class="onboard-text">苏格拉底式导师——<b>只提问、不回答</b>。它不会直接给你答案，而是陪你一步步把问题想清楚。</p>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-no">2</div>
+        <h2 class="onboard-title">怎么用</h2>
+        <p class="onboard-text">选一个赛道 → 在下方说出你卡在哪 → 跟着导师的追问，自己推导出思路。点「+ 新对话」可随时开新话题。</p>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-no">3</div>
+        <h2 class="onboard-title">试试看</h2>
+        <p class="onboard-text">现在就在下方输入框写一句你正卡住的事，回车发送。右侧会同步长出你的「思考路径」。</p>
+      </div>
+      <div class="onboard-dots">
+        <span class="onboard-dot"></span>
+        <span class="onboard-dot"></span>
+        <span class="onboard-dot"></span>
+      </div>
+      <div class="onboard-nav">
+        <button id="onboard-prev" class="onboard-prev" type="button">上一步</button>
+        <button id="onboard-next" class="onboard-next" type="button">下一步</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
     import { store, newConversation, selectConversation } from "./js/store.js";
-    import { sendMessage, openConversation, exportConversation } from "./js/chat.js";
-    import { renderTracks, afterNew, afterSelect, expandTrack } from "./js/track.js";
+    import { sendMessage, openConversation, exportConversation, initComposer, shareCard } from "./js/chat.js";
+    import { renderTracks, afterNew, afterSelect, expandTrack, applySearch } from "./js/track.js";
     import { initOcr } from "./js/ocr.js";
+    import { initOnboarding } from "./js/onboarding.js";
 
-    const input = document.getElementById("input");
-    const sendBtn = document.getElementById("send");
     const newChatBtn = document.getElementById("new-chat");
     const exportBtn = document.getElementById("export-btn");
+    const shareBtn = document.getElementById("share-btn");
+    const themeBtn = document.getElementById("theme-toggle");
+    const searchInput = document.getElementById("conv-search");
+    const notesHead = document.getElementById("notes-head");
+    const notesInput = document.getElementById("notes");
 
-    function doSend() {
-      const v = input.value;
-      if (!v.trim()) return;
-      input.value = "";
-      sendMessage(v);
-    }
-    sendBtn.onclick = doSend;
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
-    });
     newChatBtn.onclick = () => { newConversation(); afterNew(); };
     exportBtn.onclick = exportConversation;
+    shareBtn.onclick = shareCard;
 
-    // 初始化：有历史就打开第一条；没有就只显示空状态，不自动建空对话
+    // 主题切换（偏好存 localStorage）
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("socratic_theme", t); } catch {}
+      themeBtn.textContent = t === "dark" ? "浅色" : "深色";
+    }
+    themeBtn.onclick = () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      applyTheme(cur === "dark" ? "light" : "dark");
+    };
+    (function initTheme() {
+      let t = null;
+      try { t = localStorage.getItem("socratic_theme"); } catch {}
+      if (!t) t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      applyTheme(t);
+    })();
+
+    // 左栏搜索
+    searchInput.addEventListener("input", () => applySearch(searchInput.value.trim()));
+
+    // 全局快捷键：Ctrl/Cmd + K 新建对话（输入框内不拦截，交给浏览器默认行为）
+    document.addEventListener("keydown", (e) => {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        newConversation();
+        afterNew();
+      }
+    });
+
+    // 灵感便签：实时存 + 折叠
+    let notesId = "";
+    notesInput.addEventListener("input", () => {
+      if (!notesId) return;
+      try { localStorage.setItem("socratic_notes_" + notesId, notesInput.value); } catch {}
+    });
+    function setNotes(id) {
+      notesId = id || "";
+      let v = "";
+      try { v = notesId ? (localStorage.getItem("socratic_notes_" + notesId) || "") : ""; } catch {}
+      notesInput.value = v;
+    }
+    notesHead.addEventListener("click", () => {
+      const wrap = notesHead.closest(".notes");
+      wrap.classList.toggle("collapsed");
+    });
+    notesHead.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); notesHead.click(); } });
+
+    // 初始化
     store.subscribe(() => {
-      // 打开某条对话时，自动展开它所属的赛道分组
       const c = store.state.conversations.find((x) => x.id === store.state.activeId);
       if (c) expandTrack(c.track);
+      setNotes(c ? c.id : "");
       renderTracks();
     });
     if (store.state.conversations.length) selectConversation(store.state.conversations[0].id);
     renderTracks();
     afterSelect();
+    initComposer();
     initOcr();
+    initOnboarding();
   </script>
 </body>
 </html>

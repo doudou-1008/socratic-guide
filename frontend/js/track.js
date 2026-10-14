@@ -12,6 +12,13 @@ import { openConversation } from "./chat.js";
 
 // 当前展开的分组（手风琴：一次只展开一个，默认展开当前赛道）
 let expandedTrack = store.state.track;
+// 左栏搜索词（按标题或消息内容过滤当前赛道对话）
+let convFilter = "";
+
+export function applySearch(q) {
+  convFilter = q || "";
+  syncSidebar();
+}
 
 function applyAccent() {
   const t = TRACKS.find((x) => x.id === store.state.track);
@@ -33,7 +40,14 @@ export function syncSidebar() {
 
   TRACKS.forEach((t) => {
     const open = expandedTrack === t.id;
-    const convs = conversationsOf(t.id);
+    let convs = conversationsOf(t.id);
+    if (convFilter) {
+      const q = convFilter.toLowerCase();
+      convs = convs.filter((c) => {
+        if ((c.title || "").toLowerCase().includes(q)) return true;
+        return (c.messages || []).some((m) => String(m.content || "").toLowerCase().includes(q));
+      });
+    }
 
     const group = document.createElement("div");
     group.className = "conv-group";
@@ -71,7 +85,7 @@ export function syncSidebar() {
     if (convs.length === 0) {
       const empty = document.createElement("div");
       empty.className = "conv-empty";
-      empty.textContent = "还没有对话";
+      empty.textContent = convFilter ? "未找到相关对话" : "还没有对话";
       list.appendChild(empty);
     } else {
       convs.forEach((c) => {
