@@ -11,32 +11,40 @@
 </head>
 <body>
   <div class="app">
-    <!-- 左侧：赛道切换 -->
+    <!-- 左侧：品牌 + 新建 + 每赛道对话列表 -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-name">苏格拉底导师</div>
         <div class="brand-sub">只提问 · 不回答</div>
       </div>
-      <nav id="track-bar" class="track-list"></nav>
-      <div class="sidebar-foot">进度独立保存<br />切换不丢失</div>
+      <button id="new-chat" class="new-chat-btn" aria-label="新建对话">+ 新对话</button>
+      <nav id="conv-groups" class="conv-groups" aria-label="对话列表"></nav>
+      <div class="sidebar-foot">
+        <b>小贴士</b>
+        点赛道名展开历史对话<br />
+        进度按对话独立保存，切换不丢失
+      </div>
     </aside>
 
     <!-- 中间：聊天 -->
-    <main class="chat-main">
+    <main class="chat-main is-empty">
       <header class="chat-header">
-        <span id="track-title" class="chat-title">编程排错</span>
+        <span id="track-title" class="chat-title">苏格拉底导师</span>
         <span class="chat-sub">引导阶段随对话推进</span>
       </header>
-      <div id="chat" class="chat-scroll"></div>
-      <div id="ocr-status" class="ocr-status"></div>
-      <footer class="composer">
-        <label class="ocr-btn">
-          截图
-          <input id="ocr-file" type="file" accept="image/*" hidden />
-        </label>
-        <input id="input" class="composer-input" type="text" placeholder="说说你卡在哪里…" />
-        <button id="send" class="send-btn">发送</button>
-      </footer>
+      <div class="chat-body">
+        <div id="chat" class="chat-scroll"></div>
+        <div id="ocr-status" class="ocr-status"></div>
+        <footer class="composer">
+          <div class="composer-shell">
+            <label class="ocr-btn">截图
+              <input id="ocr-file" type="file" accept="image/*" hidden />
+            </label>
+            <input id="input" class="composer-input" type="text" placeholder="说说你卡在哪里…" autocomplete="off" />
+            <button id="send" class="send-btn" aria-label="发送">发送</button>
+          </div>
+        </footer>
+      </div>
     </main>
 
     <!-- 右侧：进度条 + 引导树 -->
@@ -51,14 +59,14 @@
   </div>
 
   <script type="module">
-    import { store, fetchSession } from "./js/store.js";
-    import { sendMessage, renderHistory, showEmpty } from "./js/chat.js";
-    import { renderTracks } from "./js/track.js";
-    import { renderProgress } from "./js/progress.js";
+    import { store, newConversation, selectConversation } from "./js/store.js";
+    import { sendMessage, openConversation } from "./js/chat.js";
+    import { renderTracks, afterNew, afterSelect, expandTrack } from "./js/track.js";
     import { initOcr } from "./js/ocr.js";
 
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("send");
+    const newChatBtn = document.getElementById("new-chat");
 
     function doSend() {
       const v = input.value;
@@ -68,26 +76,21 @@
     }
     sendBtn.onclick = doSend;
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        doSend();
-      }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
     });
+    newChatBtn.onclick = () => { newConversation(); afterNew(); };
 
+    // 初始化：有历史就打开第一条；没有就只显示空状态，不自动建空对话
+    store.subscribe(() => {
+      // 打开某条对话时，自动展开它所属的赛道分组
+      const c = store.state.conversations.find((x) => x.id === store.state.activeId);
+      if (c) expandTrack(c.track);
+      renderTracks();
+    });
+    if (store.state.conversations.length) selectConversation(store.state.conversations[0].id);
     renderTracks();
-    renderProgress("programming", 1);
-    showEmpty();
+    afterSelect();
     initOcr();
-
-    (async () => {
-      const s = await fetchSession(store.state.track);
-      store.set({
-        stage: { ...store.state.stage, [store.state.track]: s.stage },
-        messages: s.history,
-      });
-      renderProgress(store.state.track, s.stage);
-      renderHistory(s.history);
-    })();
   </script>
 </body>
 </html>
