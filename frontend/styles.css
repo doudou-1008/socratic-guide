@@ -218,11 +218,21 @@ body {
 
 .chat-header {
   height: 56px; flex-shrink: 0;
-  display: flex; align-items: baseline; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 0 22px; border-bottom: 1px solid var(--line);
 }
+.chat-head-left { display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; }
 .chat-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
-.chat-sub { font-size: 12px; color: var(--ink-3); }
+.chat-sub { font-size: 12px; color: var(--ink-3); flex-shrink: 0; }
+.export-btn {
+  flex-shrink: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-control); padding: 7px 14px;
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.export-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.export-btn:active { transform: scale(.97); }
 
 .chat-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .chat-scroll {
@@ -361,23 +371,46 @@ body {
 .prog-track-name { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
 .prog-track-desc { margin: 9px 0 0; font-size: 12px; color: var(--ink-2); line-height: 1.65; }
 
-/* 引导树（节点间连线） */
-.prog-row { position: relative; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.prog-row:not(:last-child)::after {
-  content: ""; position: absolute; left: 13px; top: 30px; bottom: -16px;
+/* 三阶段概览（小药丸） */
+.prog-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.prog-step {
+  font-size: 12px; padding: 4px 11px; border-radius: var(--radius-pill);
+  color: var(--ink-3); background: rgb(0 0 0 / .04);
+  transition: color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
+}
+.prog-step.done { color: var(--accent); background: var(--accent-soft); }
+
+/* 思考路径图（引导链） */
+.path-chain { display: flex; flex-direction: column; gap: 10px; }
+.path-empty { font-size: 12px; color: var(--ink-3); line-height: 1.6; padding: 4px 2px; }
+.path-step {
+  position: relative;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 11px 13px 11px 38px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.path-step:hover { border-color: var(--accent-line); background: var(--bg); }
+.path-step:active { transform: scale(.99); }
+.path-step:not(:last-child)::after {
+  content: ""; position: absolute; left: 19px; top: 42px; bottom: -10px;
   width: 2px; background: var(--line); border-radius: 2px;
 }
-.prog-row.done:not(:last-child)::after { background: var(--accent); }
-.prog-dot {
-  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+.path-no {
+  position: absolute; left: 11px; top: 11px;
+  width: 16px; height: 16px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600; background: var(--surface); color: var(--ink-2);
-  border: 1px solid var(--line); z-index: 1;
-  transition: background var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+  font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-soft); z-index: 1;
 }
-.prog-dot.done { background: var(--accent); color: #fff; border-color: var(--accent); }
-.prog-label { font-size: 14px; color: var(--ink-2); transition: color var(--dur-base) var(--ease-out); }
-.prog-label.done { color: var(--ink); font-weight: 600; }
+.path-q { font-size: 13px; color: var(--ink); line-height: 1.5; }
+.path-a { font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.msg-flash { animation: msgFlash .9s var(--ease-out); }
+@keyframes msgFlash {
+  0% { box-shadow: 0 0 0 0 var(--accent-soft-2); }
+  30% { box-shadow: 0 0 0 4px var(--accent-soft-2); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
 
 /* ---------- 动效 ---------- */
 @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

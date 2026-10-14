@@ -1,4 +1,4 @@
-// 进度条 + 引导树（接 stage 事件点亮节点）
+// 进度概览 + 思考路径图（引导链）
 import { store, TRACKS } from "./store.js";
 
 export const STAGE_MAP = {
@@ -7,14 +7,18 @@ export const STAGE_MAP = {
   habit: ["拆解目标", "预设障碍", "制定策略"],
 };
 
-// 各赛道的一句话说明（填充右侧面板）
 const TRACK_DESC = {
   programming: "陪你把报错一层层定位到根因，而不是直接给答案。",
   thesis: "帮你把模糊的想法，逼成一个站得住脚的论点。",
   habit: "和你一起拆解「坚持不下去」到底卡在哪一步。",
 };
 
-export function renderProgress(track, stage) {
+function summarize(s, n) {
+  const t = String(s || "").replace(/\s+/g, " ").trim();
+  return t.length > n ? t.slice(0, n) + "…" : t;
+}
+
+export function renderProgress(track, stage, conv) {
   const el = document.getElementById("progress");
   if (!el) return;
   const labels = STAGE_MAP[track] || STAGE_MAP.programming;
@@ -32,27 +36,78 @@ export function renderProgress(track, stage) {
     el.appendChild(head);
   }
 
+  // 三阶段概览（小药丸）
+  const steps = document.createElement("div");
+  steps.className = "prog-steps";
   labels.forEach((label, i) => {
-    const n = i + 1;
-    const done = n <= stage;
-    const row = document.createElement("div");
-    row.className = "prog-row" + (done ? " done" : "");
-
-    const dot = document.createElement("div");
-    dot.className = "prog-dot" + (done ? " done" : "");
-    dot.textContent = n;
-
-    const txt = document.createElement("div");
-    txt.className = "prog-label" + (done ? " done" : "");
-    txt.textContent = label;
-
-    row.appendChild(dot);
-    row.appendChild(txt);
-    el.appendChild(row);
+    const done = i + 1 <= (stage || 1);
+    const s = document.createElement("span");
+    s.className = "prog-step" + (done ? " done" : "");
+    s.textContent = label;
+    steps.appendChild(s);
   });
+  el.appendChild(steps);
+
+  // 引导链：把导师的提问串成可跳转的节点
+  const chain = document.createElement("div");
+  chain.className = "path-chain";
+  const msgs = (conv && conv.messages) || [];
+  if (!msgs.length) {
+    const tip = document.createElement("div");
+    tip.className = "path-empty";
+    tip.textContent = "开始对话后，这里会显示导师的引导路径。";
+    chain.appendChild(tip);
+  } else {
+    let i = 0, no = 0;
+    while (i < msgs.length) {
+      const m = msgs[i];
+      if (m.role === "user" && msgs[i + 1] && msgs[i + 1].role === "assistant") {
+        no++;
+        chain.appendChild(makeStep(no, msgs[i + 1], msgs[i], i + 1));
+        i += 2;
+      } else if (m.role === "assistant") {
+        no++;
+        chain.appendChild(makeStep(no, m, null, i));
+        i += 1;
+      } else {
+        i += 1;
+      }
+    }
+  }
+  el.appendChild(chain);
+}
+
+function makeStep(no, q, a, qIdx) {
+  const step = document.createElement("div");
+  step.className = "path-step";
+  const head = document.createElement("div");
+  head.className = "path-no";
+  head.textContent = no;
+  const qEl = document.createElement("div");
+  qEl.className = "path-q";
+  qEl.textContent = summarize(q.content, 46);
+  step.appendChild(head);
+  step.appendChild(qEl);
+  if (a && a.content) {
+    const ans = document.createElement("div");
+    ans.className = "path-a";
+    ans.textContent = "你：" + summarize(a.content, 34);
+    step.appendChild(ans);
+  }
+  step.addEventListener("click", () => jumpTo(qIdx));
+  return step;
+}
+
+function jumpTo(idx) {
+  const node = document.querySelector('[data-msg-idx="' + idx + '"]');
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "center" });
+  node.classList.add("msg-flash");
+  setTimeout(() => node.classList.remove("msg-flash"), 900);
 }
 
 export function setStage(track, stage, label) {
   store.set({ stage: { ...store.state.stage, [track]: stage } });
-  renderProgress(track, stage);
+  const c = store.state.conversations.find((x) => x.id === store.state.activeId);
+  renderProgress(track, stage, c);
 }

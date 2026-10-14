@@ -12,10 +12,11 @@ function trackName(id) {
 
 function scrollDown() { chatEl.scrollTop = chatEl.scrollHeight; }
 
-function addMessage(role, text = "", delay = 0) {
+function addMessage(role, text = "", delay = 0, idx = -1) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + (role === "user" ? "msg-user" : "msg-bot") + " msg-in";
   wrap.style.animationDelay = delay + "ms";
+  if (idx >= 0) wrap.dataset.msgIdx = String(idx);
   const bubble = document.createElement("div");
   bubble.className = "bubble " + (role === "user" ? "bubble-user" : "bubble-bot");
   const content = document.createElement("div");
@@ -57,6 +58,12 @@ export function showEmpty() {
   });
 }
 
+// 有对话时刷新右侧「思考路径图」
+function refreshPath() {
+  const c = getActive();
+  if (c) renderProgress(c.track, c.stage, c);
+}
+
 export function openConversation() {
   const c = getActive();
   const main = document.querySelector(".chat-main");
@@ -68,12 +75,12 @@ export function openConversation() {
     chatEl.innerHTML = "";
     showEmpty();
     if (main) main.classList.add("is-empty");
-    renderProgress(store.state.track, c ? c.stage : 1);
+    renderProgress(store.state.track, c ? c.stage : 1, null);
     return;
   }
   renderHistory(c.messages);
   if (main) main.classList.remove("is-empty");
-  renderProgress(c.track, c.stage);
+  renderProgress(c.track, c.stage, c);
   scrollDown();
 }
 
@@ -86,7 +93,7 @@ export function renderHistory(history) {
   chatEl.innerHTML = "";
   if (!history || history.length === 0) { showEmpty(); return; }
   history.forEach((m, i) => {
-    const content = addMessage(m.role === "user" ? "user" : "assistant", "", Math.min(i * 30, 240));
+    const content = addMessage(m.role === "user" ? "user" : "assistant", "", Math.min(i * 30, 240), i);
     renderContent(content, m.content || "");
   });
 }
@@ -185,11 +192,14 @@ export async function sendMessage(text) {
   if (empty) empty.remove();
   if (main) main.classList.remove("is-empty");
 
-  addMessage("user", text);
+  const idxUser = (getActive().messages || []).length;
+  addMessage("user", text, 0, idxUser);
   appendMessage("user", text);
   updateSidebarTitle();
+  refreshPath();
 
-  const contentEl = addMessage("assistant", "");
+  const idxBot = (getActive().messages || []).length;
+  const contentEl = addMessage("assistant", "", 0, idxBot);
   const typing = makeTyping();
   contentEl.appendChild(typing);
   store.set({ streaming: true });
@@ -246,6 +256,7 @@ export async function sendMessage(text) {
   } finally {
     store.set({ streaming: false });
     scrollDown();
+    refreshPath();
   }
 }
 
@@ -255,4 +266,37 @@ function updateSidebarTitle() {
   if (!c) return;
   const el = document.querySelector(".conv-item.active .conv-title");
   if (el) el.textContent = c.title || "新对话";
+}
+
+// 对话导出为 Markdown（纯前端，基于当前对话的本地数据）
+export function exportConversation() {
+  const c = getActive();
+  if (!c || !c.messages || !c.messages.length) { flashExport("请先聊天"); return; }
+  const t = TRACKS.find((x) => x.id === c.track);
+  const trackName = t ? t.name : "";
+  const dateStr = new Date(c.createdAt || Date.now()).toLocaleString("zh-CN");
+  let md = "# " + (c.title || "苏格拉底式对话") + "\n\n";
+  md += "> 赛道：" + trackName + "　|　时间：" + dateStr + "\n\n---\n\n";
+  c.messages.forEach((m) => {
+    const who = m.role === "user" ? "你" : "导师";
+    md += "**" + who + "：**\n\n" + (m.content || "") + "\n\n";
+  });
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const fname = (c.title || "对话").replace(/[\\/:*?"<>|]/g, "_").slice(0, 40) || "对话";
+  a.download = fname + ".md";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function flashExport(msg) {
+  const btn = document.getElementById("export-btn");
+  if (!btn) return;
+  const old = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(() => { btn.textContent = old; }, 1400);
 }

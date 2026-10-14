@@ -29,8 +29,11 @@
     <!-- 中间：聊天 -->
     <main class="chat-main is-empty">
       <header class="chat-header">
-        <span id="track-title" class="chat-title">苏格拉底导师</span>
-        <span class="chat-sub">引导阶段随对话推进</span>
+        <div class="chat-head-left">
+          <span id="track-title" class="chat-title">苏格拉底导师</span>
+          <span class="chat-sub">引导阶段随对话推进</span>
+        </div>
+        <button id="export-btn" class="export-btn" type="button" title="导出当前对话为 Markdown">导出</button>
       </header>
       <div class="chat-body">
         <div id="chat" class="chat-scroll"></div>
@@ -47,26 +50,27 @@
       </div>
     </main>
 
-    <!-- 右侧：进度条 + 引导树 -->
+    <!-- 右侧：进度概览 + 思考路径图 -->
     <aside class="progress-panel">
-      <div class="panel-title">引导进度</div>
+      <div class="panel-title">思考路径</div>
       <div id="progress"></div>
       <div class="panel-hint">
-        每完成一轮对话，阶段自动 +1。<br />
-        贴代码块会触发运行结果（演示模式为模拟）。
+        右侧逐步展示导师如何引导你思考。<br />
+        点任意节点可跳回对应对话。
       </div>
     </aside>
   </div>
 
   <script type="module">
     import { store, newConversation, selectConversation } from "./js/store.js";
-    import { sendMessage, openConversation } from "./js/chat.js";
+    import { sendMessage, openConversation, exportConversation } from "./js/chat.js";
     import { renderTracks, afterNew, afterSelect, expandTrack } from "./js/track.js";
     import { initOcr } from "./js/ocr.js";
 
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("send");
     const newChatBtn = document.getElementById("new-chat");
+    const exportBtn = document.getElementById("export-btn");
 
     function doSend() {
       const v = input.value;
@@ -79,6 +83,7 @@
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
     });
     newChatBtn.onclick = () => { newConversation(); afterNew(); };
+    exportBtn.onclick = exportConversation;
 
     // 初始化：有历史就打开第一条；没有就只显示空状态，不自动建空对话
     store.subscribe(() => {
