@@ -5,12 +5,14 @@ export const STAGE_MAP = {
   programming: ["定位错误", "分析原因", "给出方案"],
   thesis: ["明确立场", "寻找论据", "搭建框架"],
   habit: ["拆解目标", "预设障碍", "制定策略"],
+  daily: ["说清琐事", "厘清想法", "自己定夺"],
 };
 
 const TRACK_DESC = {
   programming: "陪你把报错一层层定位到根因，而不是直接给答案。",
   thesis: "帮你把模糊的想法，逼成一个站得住脚的论点。",
   habit: "和你一起拆解「坚持不下去」到底卡在哪一步。",
+  daily: "陪你梳理生活里的小纠结，问着问着你就想明白了。",
 };
 
 function summarize(s, n) {
