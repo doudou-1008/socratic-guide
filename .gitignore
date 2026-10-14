@@ -22,3 +22,6 @@ Thumbs.db
 # 团队内部 / 本地辅助文件（不公开到评委可见的仓库）
 AGENTS.md
 推送到GitHub.txt
+# 内部协作指南（含 AI/vibe coding 开发流程，仅本地留档）
+docs/项目协作手册.md
+docs/三人超详细分工_初学者版.md
