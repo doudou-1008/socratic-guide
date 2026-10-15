@@ -1,4 +1,4 @@
-# 安全守门（A-任务7）：用户输入软拒 + AI 回复破防检测
+# 安全守门（A-任务7）：用户输入软拒 + 模型回复破防检测
 import re
 
 JAILBREAK = [
@@ -24,7 +24,7 @@ _LONG_CODE_RE = re.compile(r"```[\s\S]{200,}```")
 
 
 def check_reply_leak(reply: str) -> str | None:
-    """AI 回复出现过长代码块，疑似'破防'给答案 -> 返回提醒；否则 None。"""
+    """模型回复出现过长代码块，疑似'破防'给答案 -> 返回提醒；否则 None。"""
     if _LONG_CODE_RE.search(reply or ""):
         return (
             "（提示：我似乎给了过长的代码，这不符合'只提问不回答'的原则。"

@@ -3,7 +3,7 @@
 
 export const API_BASE = "http://127.0.0.1:8000";
 
-// 赛道展示配置（id 必须与后端一致）；强调色均非 AI 紫、饱和度 < 80%
+// 赛道展示配置（id 必须与后端一致）；强调色均为低饱和配色，饱和度 < 80%
 export const TRACKS = [
   { id: "programming", name: "编程排错", color: "#2563eb" },
   { id: "thesis",     name: "论文写作", color: "#0d9488" },

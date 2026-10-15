@@ -14,7 +14,7 @@ Write-Host "==> 检查后端存活"
 Check "后端" "http://127.0.0.1:8000/docs"
 
 Write-Host "==> 检查前端可达"
-Check "前端" "http://127.0.0.1:3000"
+Check "前端" "http://127.0.0.1:5500"
 
 Write-Host "==> 检查 /chat (POST)"
 try {
