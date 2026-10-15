@@ -23,9 +23,9 @@ socratic-guide/
 │   ├── index.html
 │   ├── js/  store / chat / track / progress / highlight / ocr / onboarding
 │   └── package.json
-├── 协作文档/           # 团队分工 + AI 使用说明（本地留档，不公开评委）
+├── 协作文档/           # 团队分工与协同说明（00、AGENTS 本地留档不公开）
 ├── docs/               # 旧版内部手册（已并入 协作文档/）
-├── AGENTS.md           # AI 必读规则（本地留档）
+├── AGENTS.md           # 项目协作与维护说明（本地留档）
 ├── README.md
 └── smoke.ps1           # 一键本地自检（Windows PowerShell）
 ```
