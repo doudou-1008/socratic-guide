@@ -1,6 +1,6 @@
 // 聊天渲染 + 发消息（SSE 流）；后端未连时本地演示降级
 // 本文件同时负责：输入框交互（Enter 发送 / Shift+Enter 换行 / 停止生成）、单条复制、分享卡片。
-import { store, API_BASE, TRACKS, getActive, appendMessage, setActiveStage, deriveTitle } from "./store.js";
+import { store, API_BASE, TRACKS, getActive, appendMessage, setActiveStage, deriveTitle, newConversation } from "./store.js";
 import { renderProgress, setStage } from "./progress.js";
 import { setAccent, renderContent } from "./highlight.js";
 
@@ -234,6 +234,8 @@ export async function sendMessage(text) {
 
   streamingStop = false;
   setBusy(true);
+  // 防御：首次发送时可能还没有活动对话（activeId 为 null，例如刚进页面直接发、或点了无历史的赛道分组）
+  if (!getActive()) newConversation(store.state.track);
   const idxUser = (getActive().messages || []).length;
   addMessage("user", text, 0, idxUser);
   appendMessage("user", text);
