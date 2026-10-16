@@ -26,11 +26,12 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 MODEL = "deepseek-chat"
 DB_PATH = os.path.join(os.path.dirname(__file__), "state.db")
-TRACK_ENUMS = ["programming", "thesis", "habit"]
+TRACK_ENUMS = ["programming", "thesis", "habit", "daily"]
 
 # ---------- CORS ----------
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://127.0.0.1:3000").split(",") if o.strip()]
-origins += ["http://127.0.0.1:3000", "http://localhost:3000"]
+# 前端用 Live Server 跑在 5500；旧 3000 一并保留以兼容历史联调。
+origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://127.0.0.1:5500,http://127.0.0.1:3000").split(",") if o.strip()]
+origins += ["http://127.0.0.1:5500", "http://localhost:5500", "http://127.0.0.1:3000", "http://localhost:3000"]
 
 app = FastAPI(title="苏格拉底式多赛道导师")
 
