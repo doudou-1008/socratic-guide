@@ -72,7 +72,7 @@ body {
 }
 ::selection { background: var(--accent-soft-2); }
 
-.app { display: flex; min-height: 100dvh; }
+.app { display: flex; height: 100dvh; overflow: hidden; }
 
 /* 统一滚动条 */
 .sidebar *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -361,7 +361,14 @@ body {
 .chat-main.is-empty .composer { position: relative; z-index: 1; }
 
 /* ---------- 右侧进度栏 ---------- */
-.progress-panel { width: 276px; flex-shrink: 0; background: var(--panel); border-left: 1px solid var(--line); padding: 22px 20px; }
+.progress-panel {
+  width: 276px; flex-shrink: 0;
+  background: var(--panel); border-left: 1px solid var(--line);
+  padding: 22px 20px;
+  overflow-y: auto; /* 内容多时仅右栏内部滚动 */
+}
+.progress-panel::-webkit-scrollbar { width: 8px; }
+.progress-panel::-webkit-scrollbar-thumb { background: var(--line); border-radius: var(--radius-pill); }
 .panel-title { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px; }
 .panel-hint { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--ink-3); line-height: 1.65; }
 
